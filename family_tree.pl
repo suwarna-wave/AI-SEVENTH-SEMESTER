@@ -1,58 +1,39 @@
 /*
-   Family Tree Expert System in Prolog
+   Family tree for Suwarna
 
-   Facts describe people, marriages, and parent relationships.
-   Rules infer other relationships from those facts.
+   Facts are stored only once. Symmetric and derived relationships are handled
+   by rules, which keeps the knowledge base small and easy to maintain.
 */
 
-% -----------------------------------------------------------------------------
-% Gender facts
-% -----------------------------------------------------------------------------
-
-male(ram).
-male(hari).
-male(shyam).
-male(anil).
-male(suresh).
+% Gender
+male(krishna).
+male(shankar).
+male(shekhar).
+male(sampurna).
+male(suwarna).
 
 female(sita).
-female(gita).
-female(maya).
-female(rita).
-female(nita).
+female(shova).
+female(devi).
 
-% -----------------------------------------------------------------------------
-% Marriage facts
-% Store each marriage once; spouse/2 makes the relation work both ways.
-% -----------------------------------------------------------------------------
+% parent(Parent, Child)
+parent(krishna, shankar).
+parent(sita, shankar).
+parent(krishna, shekhar).
+parent(sita, shekhar).
 
-married(ram, sita).
-married(hari, maya).
-married(shyam, gita).
+parent(shankar, suwarna).
+parent(shova, suwarna).
 
-% -----------------------------------------------------------------------------
-% Parent facts: parent(Parent, Child)
-% -----------------------------------------------------------------------------
+parent(shekhar, sampurna).
+parent(devi, sampurna).
 
-parent(ram, hari).
-parent(sita, hari).
-parent(ram, gita).
-parent(sita, gita).
+% Each marriage is recorded in only one direction.
+married(krishna, sita).
+married(shankar, shova).
+married(shekhar, devi).
 
-parent(hari, anil).
-parent(maya, anil).
-parent(hari, rita).
-parent(maya, rita).
-
-parent(shyam, suresh).
-parent(gita, suresh).
-parent(shyam, nita).
-parent(gita, nita).
-
-% -----------------------------------------------------------------------------
-% Derived relationship rules
-% -----------------------------------------------------------------------------
-
+% Basic relationships
 father(Father, Child) :-
     male(Father),
     parent(Father, Child).
@@ -72,15 +53,15 @@ daughter(Daughter, Parent) :-
     female(Daughter),
     parent(Parent, Daughter).
 
-spouse(Person1, Person2) :-
-    married(Person1, Person2).
-spouse(Person1, Person2) :-
-    married(Person2, Person1).
+spouse(Person1, Person2) :- married(Person1, Person2).
+spouse(Person1, Person2) :- married(Person2, Person1).
 
+% setof/3 prevents duplicate sibling answers when two people share two parents.
 sibling(Person1, Person2) :-
     dif(Person1, Person2),
-    parent(CommonParent, Person1),
-    parent(CommonParent, Person2).
+    setof(CommonParent,
+          (parent(CommonParent, Person1), parent(CommonParent, Person2)),
+          [_ | _]).
 
 brother(Brother, Person) :-
     male(Brother),
@@ -90,6 +71,7 @@ sister(Sister, Person) :-
     female(Sister),
     sibling(Sister, Person).
 
+% Grandparents
 grandparent(Grandparent, Grandchild) :-
     parent(Grandparent, Parent),
     parent(Parent, Grandchild).
@@ -102,15 +84,28 @@ grandmother(Grandmother, Grandchild) :-
     female(Grandmother),
     grandparent(Grandmother, Grandchild).
 
-uncle(Uncle, Person) :-
+% Uncles and aunts include both blood relatives and relatives by marriage.
+blood_uncle(Uncle, Person) :-
     male(Uncle),
     sibling(Uncle, Parent),
     parent(Parent, Person).
 
-aunt(Aunt, Person) :-
+blood_aunt(Aunt, Person) :-
     female(Aunt),
     sibling(Aunt, Parent),
     parent(Parent, Person).
+
+uncle(Uncle, Person) :- blood_uncle(Uncle, Person).
+uncle(Uncle, Person) :-
+    male(Uncle),
+    spouse(Uncle, BloodAunt),
+    blood_aunt(BloodAunt, Person).
+
+aunt(Aunt, Person) :- blood_aunt(Aunt, Person).
+aunt(Aunt, Person) :-
+    female(Aunt),
+    spouse(Aunt, BloodUncle),
+    blood_uncle(BloodUncle, Person).
 
 cousin(Person1, Person2) :-
     dif(Person1, Person2),
@@ -118,12 +113,12 @@ cousin(Person1, Person2) :-
     parent(Parent2, Person2),
     sibling(Parent1, Parent2).
 
-% Base case: a parent is an ancestor.
+% Ancestor and descendant work for any number of generations.
 ancestor(Ancestor, Descendant) :-
     parent(Ancestor, Descendant).
-
-% Recursive case: an ancestor of a parent is an ancestor of the child.
 ancestor(Ancestor, Descendant) :-
     parent(Ancestor, Intermediate),
     ancestor(Intermediate, Descendant).
 
+descendant(Descendant, Ancestor) :-
+    ancestor(Ancestor, Descendant).
